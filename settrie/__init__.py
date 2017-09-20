@@ -171,34 +171,31 @@ class SetTrie(object):
            or not proper) supersets of set aset.
         """
         path = []
-        return self._itersupersets(self.root, list(sorted(aset)), 0, path)
+        return self._itersupersets(self.root, sorted(aset), path)
 
     @classmethod
-    def _itersupersets(cls, node, setarr, idx, path, *args):
+    def _itersupersets(cls, node, setarr, path, *args):
         """Used by itersupersets()."""
-        if node.data is not None:
-            path.append(node.data)
-        if node.flag_last and idx > len(setarr) - 1:
-            yield from cls._terminate(node, path, *args)
-        # we still have elements of aset to find
-        if idx <= len(setarr) - 1:
+        path.append(node.data)
+        if setarr:
+            current = setarr[0]
             for child in node.children:
-                # don't go to subtrees where current element cannot be
-                if child.data > setarr[idx]:
-                    break
-                if child.data == setarr[idx]:
+                if child.data < current:
                     yield from cls._itersupersets(child, setarr,
-                                                  idx + 1, path, *args)
+                                                  path, *args)
+                elif child.data == current:
+                    yield from cls._itersupersets(child, setarr[1:],
+                                                  path, *args)
                 else:
-                    yield from cls._itersupersets(child, setarr,
-                                                  idx, path, *args)
-        # no more elements to find: just traverse this subtree to get
-        # all supersets
+                    break
         else:
+            if node.flag_last:
+                yield from cls._terminate(node, path[1:], *args)
+
             for child in node.children:
-                yield from cls._itersupersets(child, setarr, idx, path, *args)
-        if node.data is not None:
-            path.pop()
+                yield from cls._iter(child, path, *args)
+
+        path.pop()
 
     def supersets(self, aset):
         """Return a list containing all sets in this set-trie that are
@@ -235,32 +232,20 @@ class SetTrie(object):
            or not proper) subsets of set aset.
         """
         path = []
-        return self._itersubsets(self.root, list(sorted(aset)), 0, path)
+        return self._itersubsets(self.root, aset, path)
 
     @classmethod
-    def _itersubsets(cls, node, setarr, idx, path, *args):
+    def _itersubsets(cls, node, setarr, path, *args):
         """Used by itersubsets()."""
-        if node.data is not None:
-            path.append(node.data)
+        path.append(node.data)
+
         if node.flag_last:
-            yield from cls._terminate(node, path, *args)
+            yield from cls._terminate(node, path[1:], *args)
         for child in node.children:
-            if idx > len(setarr) - 1:
-                break
-            if child.data == setarr[idx]:
-                yield from cls._itersubsets(child, setarr, idx + 1, path, *args)
-            else:
-                # advance in search set until we find child (or get to
-                # the end, or get to an element > child)
-                jdx = idx + 1
-                while jdx < len(setarr) and child.data >= setarr[jdx]:
-                    if child.data == setarr[jdx]:
-                        yield from cls._itersubsets(child, setarr,
-                                                    jdx, path, *args)
-                        break
-                    jdx += 1
-        if node.data is not None:
-            path.pop()
+            if child.data in setarr:
+                yield from cls._itersubsets(child, setarr, path, *args)
+
+        path.pop()
 
     def subsets(self, aset):
         """Return a list of sets in this set-trie that are (proper or not
@@ -295,14 +280,12 @@ class SetTrie(object):
     @classmethod
     def _iter(cls, node, path, *args):
         """Recursive function used by self.__iter__()."""
-        if node.data is not None:
-            path.append(node.data)
+        path.append(node.data)
         if node.flag_last:
-            yield from cls._terminate(node, path, *args)
+            yield from cls._terminate(node, path[1:], *args)
         for child in node.children:
             yield from cls._iter(child, path, *args)
-        if node.data is not None:
-            path.pop()
+        path.pop()
 
     def aslist(self):
         """Return an array containing all the sets stored in this set-trie.
@@ -461,8 +444,8 @@ class SetTrieMap(SetTrie):
 
         """
         path = []
-        return self._itersupersets(self.root, list(sorted(aset)), 0,
-                                   path, mode)
+        return self._itersupersets(self.root, sorted(aset), path,
+                                   mode)
 
     def supersets(self, aset, mode=None):
         """Return a list containing pairs of (keyset, value) for which keyset
@@ -487,8 +470,7 @@ class SetTrieMap(SetTrie):
            equivalent to mode=None.
         """
         path = []
-        return self._itersubsets(self.root, list(sorted(aset)),
-                                 0, path, mode)
+        return self._itersubsets(self.root, aset, path, mode)
 
     def subsets(self, aset, mode=None):
         """Return a list of (keyset, value) pairs from this set-trie
