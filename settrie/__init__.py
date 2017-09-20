@@ -53,9 +53,9 @@ class SetTrie(object):
        True
        >>> t.hassuperset( {1, 3} )
        True
-       >>> t.supersets( {1, 3} )
+       >>> list(t.supersets( {1, 3} ))
        [{1, 2, 3}, {1, 3}]
-       >>> t.subsets({1, 2, 3, 5})
+       >>> list(t.subsets({1, 2, 3, 5}))
        [{1, 2, 3}, {1, 3}]
 
     """
@@ -312,22 +312,22 @@ class SetTrieMap(SetTrie):
       Usage:
       ------
       >>> from settrie import SetTrieMap
-      >>> m.assign({1,2}, 'A')
-      >>> m.assign({1,2,3}, 'B')
-      >>> m.assign({2,3,5}, 'C')
+      >>> m[{1,2}] = 'A'
+      >>> m[{1,2,3}] = 'B'
+      >>> m[{2,3,5}] = 'C'
       >>> m
       [({1, 2}, 'A'), ({1, 2, 3}, 'B'), ({2, 3, 5}, 'C')]
-      >>> m.get( {1,2,3} )
+      >>> m[{1,2,3}]
       'B'
       >>> m.get( {1, 2, 3, 4}, 'Nope!')
       'Nope!'
       >>> list(m.keys())
       [{1, 2}, {1, 2, 3}, {2, 3, 5}]
-      >>> m.supersets( {1,2} )
+      >>> list(m.supersets( {1,2} ))
       [({1, 2}, 'A'), ({1, 2, 3}, 'B')]
-      >>> m.supersets({1, 2}, mode='keys')
+      >>> list(m.supersets({1, 2}, mode='keys'))
       [{1, 2}, {1, 2, 3}]
-      >>> m.supersets({1, 2}, mode='values')
+      >>> list(m.supersets({1, 2}, mode='values'))
       ['A', 'B']
     """
 
@@ -381,7 +381,7 @@ class SetTrieMap(SetTrie):
             cls._assign(nextnode, it, val)  # recurse
         except StopIteration:  # end of set to add
             node.flag_last = True
-            node.value = val
+            cls._node_value(node, val)
 
     def __getitem__(self, keyset):
         return self._get(self.root, iter(sorted(keyset)))
@@ -485,6 +485,8 @@ class SetTrieMap(SetTrie):
         """Same as self.iter(mode='keys')."""
         return self.keys()
 
+    def _node_value(node, value):
+        node.value = value
 
     @classmethod
     def _printtree(cls, node, level, tabchr, tabsize, stream):
@@ -518,57 +520,31 @@ class SetTrieMultiMap(SetTrieMap):
        Usage:
        ------
        >>> from settrie import SetTrieMultiMap
-       >>> m.assign({1,2}, 'A')
-       >>> m.assign({1,2,3}, 'B')
-       >>> m.assign({1,2,3}, 'BB')
-       >>> m.assign({2,3,5}, 'C')
+       >>> m[{1,2}] = 'A'
+       >>> m[{1,2,3}] = 'B'
+       >>> m[{1,2,3}] = 'BB'
+       >>> m[{2,3,5}] = 'C'
        >>> m
        [({1, 2}, 'A'), ({1, 2, 3}, 'B'), ({1, 2, 3}, 'BB'), ({2, 3, 5}, 'C')]
-       >>> m.get( {1,2,3} )
+       >>> m[( {1,2,3} )]
        ['B', 'BB']
        >>> m.get( {1, 2, 3, 4}, 'Nope!')
        'Nope!'
        >>> list(m.keys())
        [{1, 2}, {1, 2, 3}, {2, 3, 5}]
-       >>> m.supersets( {1,2} )
+       >>> list(m.supersets( {1,2} ))
        [({1, 2}, 'A'), ({1, 2, 3}, 'B'), ({1, 2, 3}, 'BB')]
-       >>> m.supersets({1, 2}, mode='keys')
+       >>> list(m.supersets({1, 2}, mode='keys'))
        [{1, 2}, {1, 2, 3}]
-       >>> m.supersets({1, 2}, mode='values')
+       >>> list(m.supersets({1, 2}, mode='values'))
        ['A', 'B', 'BB']
 
     """
 
-    def __init__(self, iterable=None):
-        """Set up this SetTrieMultiMap object.  If iterable is specified, it
-           must be an iterable of (keyset, value) pairs from which
-           set-trie is populated; key may be repeated, all associated
-           values will be stored.
-        """
-        self.root = self.Node()
-        if iterable is not None:
-            for key, value in iterable:
-                self[key] = value
-
-    @classmethod
-    def _assign(cls, node, it, val):
-        """Recursive function used by self.assign()."""
-        try:
-            data = next(it)
-            nextnode = None
-            try:
-                # find first child with this data
-                nextnode = node.children[node.children.index(
-                    cls.Node(data))]
-            except ValueError:  # not found
-                nextnode = cls.Node(data)  # create new node
-                node.children.add(nextnode)  # add to children & sort
-            cls._assign(nextnode, it, val)  # recurse
-        except StopIteration:  # end of set to add
-            node.flag_last = True
-            if node.value is None:
-                node.value = []
-            node.value.append(val)
+    def _node_value(node, value):
+        if node.value is None:
+            node.value = []
+        node.value.append(value)
 
     @classmethod
     def _printtree(cls, node, level, tabchr, tabsize, stream):
