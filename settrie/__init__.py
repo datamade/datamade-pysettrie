@@ -237,13 +237,6 @@ class SetTrie(object):
 
         path.pop()
 
-    def iter(self):
-        """Returns an iterator over the sets stored in this set-trie (with
-           pre-order tree traversal).  The sets are returned in sorted
-           order with their elements sorted.
-        """
-        return self.__iter__()
-
     def __iter__(self):
         """Returns an iterator over the sets stored in this set-trie (with
            pre-order tree traversal).  The sets are returned in sorted
