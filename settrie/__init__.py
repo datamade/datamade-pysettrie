@@ -109,10 +109,6 @@ class SetTrie(object):
         except StopIteration:  # end of set to add
             node.flag_last = True
 
-    def contains(self, aset):
-        """Returns True iff this set-trie contains set aset."""
-        return self._contains(self.root, iter(sorted(aset)))
-
     def __contains__(self, aset):
         """Returns True iff this set-trie contains set aset.
 
@@ -123,7 +119,7 @@ class SetTrie(object):
            >>> {1, 3} in t
            True
         """
-        return self.contains(aset)
+        return self._contains(self.root, iter(sorted(aset)))
 
     @classmethod
     def _contains(cls, node, it):
@@ -166,7 +162,7 @@ class SetTrie(object):
                 break
         return found
 
-    def itersupersets(self, aset):
+    def supersets(self, aset):
         """Return an iterator over all sets in this set-trie that are (proper
            or not proper) supersets of set aset.
         """
@@ -197,12 +193,6 @@ class SetTrie(object):
 
         path.pop()
 
-    def supersets(self, aset):
-        """Return a list containing all sets in this set-trie that are
-           supersets of set aset.
-        """
-        return list(self.itersupersets(aset))
-
     def hassubset(self, aset):
         """Return True iff there is at least one set in this set-trie that is
            the (proper or not proper) subset of set aset.
@@ -227,7 +217,7 @@ class SetTrie(object):
         else:
             return True
 
-    def itersubsets(self, aset):
+    def subsets(self, aset):
         """Return an iterator over all sets in this set-trie that are (proper
            or not proper) subsets of set aset.
         """
@@ -246,12 +236,6 @@ class SetTrie(object):
                 yield from cls._itersubsets(child, setarr, path, *args)
 
         path.pop()
-
-    def subsets(self, aset):
-        """Return a list of sets in this set-trie that are (proper or not
-           proper) subsets of set aset.
-        """
-        return list(self.itersubsets(aset))
 
     def iter(self):
         """Returns an iterator over the sets stored in this set-trie (with
@@ -287,12 +271,7 @@ class SetTrie(object):
             yield from cls._iter(child, path, *args)
         path.pop()
 
-    def aslist(self):
-        """Return an array containing all the sets stored in this set-trie.
-           The sets are in sorted order with their elements sorted."""
-        return list(self)
-
-    def printtree(self, tabchr=' ', tabsize=2, stream=sys.stdout):
+    def pprint(self, tabchr=' ', tabsize=2, stream=sys.stdout):
         """Print a mirrored 90-degree rotation of the nodes in this trie to
            stream (default: sys.stdout).  Nodes marked as flag_last
            are trailed by the '#' character.  tabchr and tabsize
@@ -314,12 +293,10 @@ class SetTrie(object):
             cls._printtree(child, level + 1, tabchr, tabsize, stream)
 
     def __str__(self):
-        """Returns str(self.aslist())."""
-        return str(self.aslist())
+        return str(list(self))
 
     def __repr__(self):
-        """Returns str(self.aslist())."""
-        return str(self.aslist())
+        return str(self)
 
     @staticmethod
     def _terminate(node, path):
@@ -381,9 +358,9 @@ class SetTrieMap(SetTrie):
         self.root = self.Node()
         if iterable is not None:
             for key, value in iterable:
-                self.assign(key, value)
+                self[key] = value
 
-    def assign(self, akey, avalue):
+    def __setitem__(self, akey, avalue):
         """Add key akey with associated value avalue to the container.
            akey must be a sortable and iterable container type."""
         self._assign(self.root, iter(sorted(akey)), avalue)
@@ -406,14 +383,20 @@ class SetTrieMap(SetTrie):
             node.flag_last = True
             node.value = val
 
+    def __getitem__(self, keyset):
+        return self._get(self.root, iter(sorted(keyset)))
+
     def get(self, keyset, default=None):
         """Return the value associated to keyset if keyset is in this
            SetTrieMap, else default.
         """
-        return self._get(self.root, iter(sorted(keyset)), default)
+        try:
+            return self[keyset]
+        except KeyError:
+            return default
 
     @classmethod
-    def _get(cls, node, it, default):
+    def _get(cls, node, it):
         """Recursive function used by self.get()."""
         try:
             data = next(it)
@@ -421,13 +404,16 @@ class SetTrieMap(SetTrie):
                 # find first child with this data
                 matchnode = node.children[node.children.index(
                     cls.Node(data))]
-                return cls._get(matchnode, it, default)  # recurse
-            except ValueError:  # not found
-                return default
+                return cls._get(matchnode, it)  # recurse
+            except ValueError:
+                raise KeyError
         except StopIteration:
-            return (node.value if node.flag_last else default)
+            if node.flag_last:
+                return node.value
+            else:
+                raise KeyError
 
-    def itersupersets(self, aset, mode=None):
+    def supersets(self, aset, mode=None):
         """Return an iterator over all (keyset, value) pairs from this
            SetTrieMap for which set keyset is a superset (proper or
            not proper) of set aset.  If mode is not None, the
@@ -447,15 +433,7 @@ class SetTrieMap(SetTrie):
         return self._itersupersets(self.root, sorted(aset), path,
                                    mode)
 
-    def supersets(self, aset, mode=None):
-        """Return a list containing pairs of (keyset, value) for which keyset
-           is superset of set aset.
-
-           Parameter mode: see documentation for itersupersets().
-        """
-        return list(self.itersupersets(aset, mode))
-
-    def itersubsets(self, aset, mode=None):
+    def subsets(self, aset, mode=None):
         """Return an iterator over pairs (keyset, value) from this SetTrieMap
            for which keyset is (proper or not proper) subset of set aset.
            If mode is not None, the following values are allowed:
@@ -471,13 +449,6 @@ class SetTrieMap(SetTrie):
         """
         path = []
         return self._itersubsets(self.root, aset, path, mode)
-
-    def subsets(self, aset, mode=None):
-        """Return a list of (keyset, value) pairs from this set-trie
-           for which keyset is (proper or not proper) subset of set aset.
-           Parameter mode: see documentation for itersubsets().
-        """
-        return list(self.itersubsets(aset, mode))
 
     def iter(self, mode=None):
         """Returns an iterator to all (keyset, value) pairs stored in this
@@ -514,12 +485,6 @@ class SetTrieMap(SetTrie):
         """Same as self.iter(mode='keys')."""
         return self.keys()
 
-    def aslist(self):
-        """Return a list containing all the (keyset, value) pairs stored in
-           this SetTrieMap.  The pairs are returned sorted to their
-           keys, which are also sorted.
-        """
-        return list(self.iter())
 
     @classmethod
     def _printtree(cls, node, level, tabchr, tabsize, stream):
@@ -583,28 +548,10 @@ class SetTrieMultiMap(SetTrieMap):
         self.root = self.Node()
         if iterable is not None:
             for key, value in iterable:
-                self.assign(key, value)
-
-    def assign(self, akey, avalue):
-        """Add key akey with associated value avalue to the container.  akey
-           must be a sortable and iterable container type.  If akey is
-           an already exising key, avalue will be appended to the
-           associated values.
-
-           Multiple occurrences of the same value for the same key are
-           preserved.
-
-           Returns number of values associated to akey after the
-           assignment, ie. returns 1 if akey was a nonexisting key
-           before this function call, returns (number of items before
-           call + 1) if akey was an already existing key.
-        """
-        valcnt = [0]
-        self._assign(self.root, iter(sorted(akey)), avalue, valcnt)
-        return valcnt[0]
+                self[key] = value
 
     @classmethod
-    def _assign(cls, node, it, val, valcnt):
+    def _assign(cls, node, it, val):
         """Recursive function used by self.assign()."""
         try:
             data = next(it)
@@ -616,58 +563,12 @@ class SetTrieMultiMap(SetTrieMap):
             except ValueError:  # not found
                 nextnode = cls.Node(data)  # create new node
                 node.children.add(nextnode)  # add to children & sort
-            cls._assign(nextnode, it, val, valcnt)  # recurse
+            cls._assign(nextnode, it, val)  # recurse
         except StopIteration:  # end of set to add
             node.flag_last = True
             if node.value is None:
                 node.value = []
             node.value.append(val)
-            # return # of values for key after this assignment
-            valcnt[0] = len(node.value)
-
-    def count(self, keyset):
-        """Returns the number of values associated to keyset. If keyset is
-           unknown, returns 0.
-        """
-        return self._count(self.root, iter(sorted(keyset)))
-
-    @classmethod
-    def _count(cls, node, it):
-        """Recursive function used by self.count()."""
-        try:
-            data = next(it)
-            try:
-                # find first child with this data
-                matchnode = node.children[node.children.index(
-                    cls.Node(data))]
-                return cls._count(matchnode, it)  # recurse
-            except ValueError:  # not found
-                return 0
-        except StopIteration:
-            if node.flag_last and node.value is not None:
-                return len(node.value)
-            else:
-                return 0
-
-    def iterget(self, keyset):
-        """Return an iterator to the values associated to keyset."""
-        return self._iterget(self.root, iter(sorted(keyset)))
-
-    @classmethod
-    def _iterget(cls, node, it):
-        """Recursive function used by self.get()."""
-        try:
-            data = next(it)
-            try:
-                # find first child with this data
-                matchnode = node.children[node.children.index(
-                    cls.Node(data))]
-                yield from cls._iterget(matchnode, it)  # recurse
-            except ValueError:  # not found
-                return None
-        except StopIteration:
-            if node.flag_last:
-                yield from node.value
 
     @classmethod
     def _printtree(cls, node, level, tabchr, tabsize, stream):
